@@ -72,7 +72,7 @@ resource "google_sql_database_instance" "tenant_shard" {
 
       # PgBouncer is deployed as a sidecar container in k8s-sidecar.yaml.
       # It connects to this instance's private IP on port 5432 and exposes
-      # port 6432 for the Veritas Proxy / Hub. Transaction pooling mode
+      # port 6432 for the sovereign Proxy / Hub. Transaction pooling mode
       # with DEFAULT_POOL_SIZE=120 and MAX_CLIENT_CONN=10,000 prevents
       # connection exhaustion under 5,000 VU load.
     }

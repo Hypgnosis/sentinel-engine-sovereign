@@ -81,7 +81,7 @@ metadata:
   name: sentinel-sidecar-config
   namespace: sentinel-sovereign
 data:
-  SENTINEL_SIDECAR_SOCKET: "/tmp/sentinel_veritas.sock"
+  SENTINEL_SIDECAR_SOCKET: "/tmp/sentinel_sovereign.sock"
   SENTINEL_GRAPH_SNAPSHOT: "/var/sentinel/graph.json"
   SENTINEL_WAL_PATH: "/var/sentinel/wal.jsonl"
   SENTINEL_HUB_SYNC_INTERVAL: "15"
@@ -187,7 +187,7 @@ spec:
               command:
                 - sh
                 - -c
-                - "test -S /tmp/sentinel_veritas.sock"
+                - "test -S /tmp/sentinel_sovereign.sock"
             initialDelaySeconds: 2
             periodSeconds: 5
           livenessProbe:
@@ -195,7 +195,7 @@ spec:
               command:
                 - sh
                 - -c
-                - "test -S /tmp/sentinel_veritas.sock"
+                - "test -S /tmp/sentinel_sovereign.sock"
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
@@ -205,7 +205,7 @@ spec:
           image: gcr.io/ha-sentinel-core-v21/sentinel-agent-worker:latest
           env:
             - name: SENTINEL_SIDECAR_SOCKET
-              value: "/tmp/sentinel_veritas.sock"
+              value: "/tmp/sentinel_sovereign.sock"
           volumeMounts:
             # UDS socket — reads from the sidecar
             - name: sentinel-sock

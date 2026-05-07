@@ -89,6 +89,7 @@
     },
     "dataAuthorityLabels": {
       "GCP_BIGQUERY_VECTOR_RAG": "SCADA · BigQuery Vector RAG",
+      "SOVEREIGN_SIDECAR_LOCAL": "Sentinel Sidecar · Edge Arbitration (Determinista)",
       "FIRESTORE_LEGACY": "Legado · Firestore"
     }
   }

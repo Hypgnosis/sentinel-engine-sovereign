@@ -3,7 +3,7 @@
 //
 //  A lightweight HTTP server that simulates the Governance Hub's
 //  evidence ingestion endpoint. Accepts WAL entries via POST and
-//  writes them to the veritas_audit_log table in Postgres via
+//  writes them to the sovereign_audit_log table in Postgres via
 //  PgBouncer.
 //
 //  This is the "other end" of the background sync path that was
@@ -103,7 +103,7 @@ var (
 )
 
 const insertSQL = `
-INSERT INTO veritas_audit_log (
+INSERT INTO sovereign_audit_log (
     tenant_id, skill_name, resource_path, arbiter_decision,
     sidecar_audit_id, wal_timestamp, wal_sequence
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -218,7 +218,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	// Count total ingested rows
 	var count int64
-	db.QueryRowContext(ctx, "SELECT COUNT(*) FROM veritas_audit_log").Scan(&count)
+	db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sovereign_audit_log").Scan(&count)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

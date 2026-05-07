@@ -15,7 +15,7 @@ variable "region" {
 }
 
 variable "vpc_id" {
-  description = "VPC network self_link for private IP peering. The VeritasProxy (Cloud Functions/Run) must be in this VPC or have a VPC connector attached."
+  description = "VPC network self_link for private IP peering. The sovereignProxy (Cloud Functions/Run) must be in this VPC or have a VPC connector attached."
   type        = string
 }
 

@@ -26,7 +26,7 @@ set -euo pipefail
 # ── Paths ────────────────────────────────────────────────
 CRUCIBLE_DIR="/tmp/sentinel-crucible"
 WAL_DIR="${CRUCIBLE_DIR}/wal"
-SOCK="/tmp/sentinel_veritas.sock"
+SOCK="/tmp/sentinel_sovereign.sock"
 HUB_DIR="/mnt/d/Documents/Sentinel Engine/tests/crucible-hub"
 SIDECAR_SRC="/mnt/d/Documents/Sentinel Engine/sidecar"
 
@@ -90,9 +90,9 @@ for i in $(seq 1 20); do
 done
 
 # Verify the audit table exists
-echo "  Verifying veritas_audit_log table..."
-docker exec crucible-postgres psql -U sentinel -d sentinel_hub -c "\dt veritas_audit_log" 2>/dev/null | grep -q "veritas_audit_log" || {
-  echo "  ❌ veritas_audit_log table not created. Check init.sql."
+echo "  Verifying sovereign_audit_log table..."
+docker exec crucible-postgres psql -U sentinel -d sentinel_hub -c "\dt sovereign_audit_log" 2>/dev/null | grep -q "sovereign_audit_log" || {
+  echo "  ❌ sovereign_audit_log table not created. Check init.sql."
   exit 1
 }
 echo "  ✅ Table exists"
@@ -261,7 +261,7 @@ WAL_SYNCED=$(grep -c '"synced":true' "${WAL_DIR}/wal.jsonl" 2>/dev/null || echo 
 
 # Count DB entries
 DB_ROWS=$(docker exec crucible-postgres psql -U sentinel -d sentinel_hub -t -c \
-  "SELECT COUNT(*) FROM veritas_audit_log;" 2>/dev/null | tr -d ' ')
+  "SELECT COUNT(*) FROM sovereign_audit_log;" 2>/dev/null | tr -d ' ')
 
 echo ""
 echo "  WAL Total:    ${WAL_TOTAL}"

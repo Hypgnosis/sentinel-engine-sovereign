@@ -1,13 +1,13 @@
 -- ═══════════════════════════════════════════════════════════════
 --  SENTINEL V5.5 — Crucible Hub Schema
 --  
---  Minimal schema for the veritas_audit_log table used during
+--  Minimal schema for the sovereign_audit_log table used during
 --  the Crucible load test. Matches the production schema from
 --  sharding.sql but without the shard_map FK (standalone test).
 -- ═══════════════════════════════════════════════════════════════
 
 -- Sidecar WAL entries land here via POST /v1/evidence/ingest
-CREATE TABLE IF NOT EXISTS veritas_audit_log (
+CREATE TABLE IF NOT EXISTS sovereign_audit_log (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Sidecar WAL fields (direct mapping)
@@ -31,14 +31,14 @@ CREATE TABLE IF NOT EXISTS veritas_audit_log (
 
 -- Hot query: "how many entries per tenant in the last hour?"
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_time 
-    ON veritas_audit_log (tenant_id, ingested_at DESC);
+    ON sovereign_audit_log (tenant_id, ingested_at DESC);
 
 -- Hot query: "any DENIED decisions?"
 CREATE INDEX IF NOT EXISTS idx_audit_decision 
-    ON veritas_audit_log (arbiter_decision, ingested_at DESC);
+    ON sovereign_audit_log (arbiter_decision, ingested_at DESC);
 
 -- Uniqueness on sidecar_audit_id prevents double-ingestion from WAL replay
 -- (Already handled by UNIQUE constraint above)
 
 -- Pre-warm: analyze the empty table so the planner has stats
-ANALYZE veritas_audit_log;
+ANALYZE sovereign_audit_log;

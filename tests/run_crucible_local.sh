@@ -8,7 +8,7 @@ set -e
 
 CRUCIBLE_DIR="/tmp/sentinel-crucible"
 WAL_DIR="${CRUCIBLE_DIR}/wal"
-SOCK="/tmp/sentinel_veritas.sock"
+SOCK="/tmp/sentinel_sovereign.sock"
 
 # ── Clean previous runs ──────────────────────────────────
 rm -f "${SOCK}"

@@ -13,7 +13,7 @@
 #    - PgBouncer max_client_conn: 10,000
 #    - Postgres max_connections: 150
 #    - Transaction pooling mode (connections recycled per txn)
-#    - veritas_audit_log table with append-only constraint
+#    - sovereign_audit_log table with append-only constraint
 # ═══════════════════════════════════════════════════════════════
 
 services:

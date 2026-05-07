@@ -31,7 +31,7 @@ import (
 func main() {
 	socketPath := os.Getenv("SENTINEL_SIDECAR_SOCKET")
 	if socketPath == "" {
-		socketPath = "/tmp/sentinel_veritas.sock"
+		socketPath = "/tmp/sentinel_sovereign.sock"
 	}
 
 	listenAddr := os.Getenv("BRIDGE_LISTEN")

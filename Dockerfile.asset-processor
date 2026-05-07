@@ -12,7 +12,7 @@
 #
 #  Run (with governance tethering):
 #    docker run --rm \
-#      -e SENTINEL_VERITAS_PROXY_URL=https://veritas.sentinel.internal \
+#      -e SENTINEL_sovereign_PROXY_URL=https://sovereign.sentinel.internal \
 #      -e SENTINEL_TENANT_ID=<tenant-uuid> \
 #      -v /mnt/shards:/mnt/shards:rw \
 #      --memory=4g \

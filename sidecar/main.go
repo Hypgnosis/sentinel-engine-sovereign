@@ -3,7 +3,7 @@
 //  ═══════════════════════════════════════════════════════════════════
 //
 //  A high-performance Go daemon that co-locates with Antigravity agents
-//  and Gemini Gems on the same node. Replaces HTTP-based Veritas Proxy
+//  and Gemini Gems on the same node. Replaces HTTP-based Sovereign Proxy
 //  calls with Unix Domain Socket IPC for sub-0.177ms arbitration.
 //
 //  Architecture:
@@ -18,7 +18,7 @@
 //    - SLA Monitoring: Per-request latency tracking with alerting
 //
 //  Required ENV:
-//    SENTINEL_SIDECAR_SOCKET  — UDS path (default: /tmp/sentinel_veritas.sock)
+//    SENTINEL_SIDECAR_SOCKET  — UDS path (default: /tmp/sentinel_sovereign.sock)
 //    SENTINEL_GRAPH_SNAPSHOT  — Disk snapshot path (default: /var/sentinel/graph.json)
 //    SENTINEL_WAL_PATH        — Write-ahead log path (default: /var/sentinel/wal.jsonl)
 //    SENTINEL_HUB_URL         — Governance Hub URL for background sync
@@ -67,7 +67,7 @@ func envOr(key, fallback string) string {
 }
 
 var (
-	SocketPath    = envOr("SENTINEL_SIDECAR_SOCKET", "/tmp/sentinel_veritas.sock")
+	SocketPath    = envOr("SENTINEL_SIDECAR_SOCKET", "/tmp/sentinel_sovereign.sock")
 	SocketGroup   = envOr("SENTINEL_SOCKET_GROUP", "sentinel-runners")
 	SnapshotPath  = envOr("SENTINEL_GRAPH_SNAPSHOT", "/var/sentinel/graph.json")
 	WALPath       = envOr("SENTINEL_WAL_PATH", "/var/sentinel/wal.jsonl")

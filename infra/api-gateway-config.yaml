@@ -9,7 +9,7 @@
 #    - Usage quota enforcement (10,000 req/month base tier)
 #    - CORS passthrough (handled by the Cloud Function)
 #
-#  V5.5: Added /v1/arbitrate (Veritas Proxy) route for
+#  V5.5: Added /v1/arbitrate (sovereign Proxy) route for
 #        shard-aware agent→kernel arbitration.
 #
 #  Deploy via: infra/api-gateway.sh
@@ -50,7 +50,7 @@ x-google-management:
       valueType: INT64
       metricKind: DELTA
     - name: sentinel-arbitrate-requests
-      displayName: Sentinel Arbitrate Requests (Veritas Proxy)
+      displayName: Sentinel Arbitrate Requests (sovereign Proxy)
       valueType: INT64
       metricKind: DELTA
   quota:
@@ -73,14 +73,14 @@ x-google-management:
 # ─────────────────────────────────────────────────────
 
 paths:
-  # ── V5.5: Veritas Proxy (Agent → Kernel Gateway) ──
+  # ── V5.5: sovereign Proxy (Agent → Kernel Gateway) ──
   /v1/arbitrate:
     post:
       operationId: sentinelArbitrate
       summary: Shard-aware agent-to-kernel arbitration
       description: >
         The SOLE entry point for agent-to-kernel communication.
-        Never call the Arbiter Kernel directly. The Veritas Proxy
+        Never call the Arbiter Kernel directly. The sovereign Proxy
         handles tenant→shard routing, skill admissibility checks,
         tier-aware rate limiting, and append-only audit logging.
       consumes:
