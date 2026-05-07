@@ -1,0 +1,313 @@
+# ═══════════════════════════════════════════════════════════════
+#  SENTINEL V5.5 — Sovereign Sidecar Kubernetes Manifests
+#  ═══════════════════════════════════════════════════════════════
+#
+#  These manifests deploy the Sentinel Sidecar alongside the
+#  Python agent worker as a 2-container pod with:
+#
+#    1. Persistent WAL storage (NVMe-backed PVC)
+#    2. PgBouncer connection pooler sidecar
+#    3. Cloud SQL Auth Proxy (private IP access)
+#
+#  Deployment Order:
+#    1. Apply the PVC:        kubectl apply -f k8s-sidecar.yaml
+#    2. Apply the Deployment: kubectl apply -f k8s-sidecar.yaml
+#
+#  Verification:
+#    Kill the sidecar: kubectl exec <pod> -c sentinel-sidecar -- kill -9 1
+#    Wait for restart, then check:
+#      kubectl exec <pod> -c sentinel-sidecar -- cat /var/sentinel/wal.jsonl
+#    If the WAL entries survive, persistent storage is confirmed.
+#
+# ═══════════════════════════════════════════════════════════════
+
+---
+# ─────────────────────────────────────────────────────
+#  NAMESPACE — Tenant Isolation
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinel-sovereign
+  labels:
+    app: sentinel
+    tier: governance
+
+---
+# ─────────────────────────────────────────────────────
+#  PERSISTENT VOLUME CLAIM — WAL + Snapshot Storage
+#
+#  IOPS MATH (non-negotiable for the Crucible):
+#    GCP pd-ssd: 30 IOPS/GB sustained + burst tokens.
+#    5,000 VUs × fsync() = ~5,000 write IOPS minimum.
+#    5GB pd-ssd  = 150 sustained IOPS  → INSTANT DEATH.
+#    50GB pd-ssd = 1,500 sustained IOPS → depletes in 30s.
+#    500GB pd-ssd = 15,000 sustained IOPS → survives Crucible.
+#
+#  We provision 500Gi NOT for capacity (WAL uses ~2GB/day)
+#  but to guarantee the storage controller doesn't throttle
+#  our fsync() calls once burst tokens are depleted.
+#
+#  Alternative: Use pd-extreme or Hyperdisk Extreme for
+#  provisioned IOPS independent of disk size.
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sentinel-wal-pvc
+  namespace: sentinel-sovereign
+  labels:
+    app: sentinel
+    component: sidecar
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # pd-ssd (premium-rwo): 30 IOPS/GB sustained.
+  # 500Gi = 15,000 sustained write IOPS.
+  # For production beyond Crucible, consider pd-extreme
+  # or hyperdisk-extreme with provisioned IOPS.
+  storageClassName: premium-rwo
+  resources:
+    requests:
+      storage: 500Gi
+
+---
+# ─────────────────────────────────────────────────────
+#  CONFIGMAP — Sidecar Configuration
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-sidecar-config
+  namespace: sentinel-sovereign
+data:
+  SENTINEL_SIDECAR_SOCKET: "/tmp/sentinel_veritas.sock"
+  SENTINEL_GRAPH_SNAPSHOT: "/var/sentinel/graph.json"
+  SENTINEL_WAL_PATH: "/var/sentinel/wal.jsonl"
+  SENTINEL_HUB_SYNC_INTERVAL: "15"
+  SENTINEL_WAL_REPLAY_INTERVAL: "30"
+  SENTINEL_SOCKET_GROUP: "sentinel-runners"
+
+---
+# ─────────────────────────────────────────────────────
+#  DEPLOYMENT — 3-Container Pod
+#
+#  Container 1: sentinel-sidecar (Go binary)
+#    - Serves the UDS for sub-0.177ms arbitration
+#    - Writes WAL to the PVC mount at /var/sentinel
+#
+#  Container 2: python-worker (Agent runtime)
+#    - Connects to the sidecar via the shared UDS
+#    - Executes governed agent tasks
+#
+#  Container 3: pgbouncer (Connection Pooler)
+#    - Sits between the Hub and Cloud SQL
+#    - Transaction pooling mode (releases server conn per txn)
+#    - Max 120 server connections (leaves 30 for admin/replication)
+#    - Max 10,000 client connections (5,000 VUs + WAL replayers)
+#
+#  Shared volumes:
+#    - sentinel-wal: PVC (persistent WAL + snapshot)
+#    - sentinel-sock: emptyDir (ephemeral UDS — OK because
+#      the socket is recreated on boot)
+# ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-agent-pod
+  namespace: sentinel-sovereign
+  labels:
+    app: sentinel
+    component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentinel
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: sentinel
+        component: agent
+    spec:
+      serviceAccountName: sentinel-sidecar-sa
+      terminationGracePeriodSeconds: 30
+
+      # ── INIT CONTAINER: Directory ownership ────────
+      initContainers:
+        - name: wal-dir-init
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /var/sentinel
+              chown 1000:1000 /var/sentinel
+              chmod 750 /var/sentinel
+          volumeMounts:
+            - name: sentinel-wal
+              mountPath: /var/sentinel
+
+      containers:
+        # ── Container 1: Sentinel Sidecar ────────────
+        - name: sentinel-sidecar
+          image: gcr.io/ha-sentinel-core-v21/sentinel-sidecar:latest
+          envFrom:
+            - configMapRef:
+                name: sentinel-sidecar-config
+          env:
+            - name: SENTINEL_HUB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: hub-url
+            - name: SENTINEL_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: tenant-id
+          volumeMounts:
+            # CRITICAL: WAL on the PVC — survives pod restarts
+            - name: sentinel-wal
+              mountPath: /var/sentinel
+            # UDS socket — shared with python-worker
+            - name: sentinel-sock
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            exec:
+              # Verify the UDS is accepting connections
+              command:
+                - sh
+                - -c
+                - "test -S /tmp/sentinel_veritas.sock"
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -S /tmp/sentinel_veritas.sock"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+        # ── Container 2: Python Agent Worker ─────────
+        - name: python-worker
+          image: gcr.io/ha-sentinel-core-v21/sentinel-agent-worker:latest
+          env:
+            - name: SENTINEL_SIDECAR_SOCKET
+              value: "/tmp/sentinel_veritas.sock"
+          volumeMounts:
+            # UDS socket — reads from the sidecar
+            - name: sentinel-sock
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+        # ── Container 3: PgBouncer Connection Pooler ─
+        - name: pgbouncer
+          image: edoburu/pgbouncer:1.22.0
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: database-url
+            - name: POOL_MODE
+              value: "transaction"
+            - name: DEFAULT_POOL_SIZE
+              # 120 server conns saturate Cloud SQL max_connections=150
+              # with 30 reserved for admin, replication, and backups.
+              value: "120"
+            - name: MAX_CLIENT_CONN
+              # 10,000: supports 5,000 k6 VUs + 100 WAL replay workers
+              # + headroom for Hub sync goroutines.
+              # PgBouncer's overhead per idle client is ~2KB.
+              # 10,000 clients × 2KB = ~20MB — fits in 128Mi limit.
+              value: "10000"
+            - name: MAX_DB_CONNECTIONS
+              value: "120"
+            - name: AUTH_TYPE
+              value: "scram-sha-256"
+            - name: SERVER_RESET_QUERY
+              # DISCARD ALL cleans up temp tables, prepared statements,
+              # and session state between transaction pool rotations.
+              value: "DISCARD ALL"
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            tcpSocket:
+              port: 6432
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6432
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+      volumes:
+        # PVC: Durable WAL + snapshot storage
+        - name: sentinel-wal
+          persistentVolumeClaim:
+            claimName: sentinel-wal-pvc
+        # emptyDir: Shared UDS socket (ephemeral is OK here)
+        - name: sentinel-sock
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+
+---
+# ─────────────────────────────────────────────────────
+#  SERVICE ACCOUNT — Minimal IAM
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-sidecar-sa
+  namespace: sentinel-sovereign
+  annotations:
+    iam.gke.io/gcp-service-account: sentinel-inference-sa@ha-sentinel-core-v21.iam.gserviceaccount.com
+
+---
+# ─────────────────────────────────────────────────────
+#  SECRET TEMPLATE — Populate before deployment
+#
+#  kubectl create secret generic sentinel-secrets \
+#    --namespace sentinel-sovereign \
+#    --from-literal=hub-url=https://sentinel-hub-xxxx.run.app \
+#    --from-literal=tenant-id=acme-logistics \
+#    --from-literal=database-url=postgresql://user:pass@localhost:6432/sentinel_sovereign_db
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sentinel-secrets
+  namespace: sentinel-sovereign
+type: Opaque
+stringData:
+  hub-url: "REPLACE_ME"
+  tenant-id: "REPLACE_ME"
+  database-url: "REPLACE_ME"

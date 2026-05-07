@@ -1,0 +1,16 @@
+{
+  "name": "Sentinel Engine",
+  "short_name": "SENTINEL",
+  "description": "Autonomous Market Intelligence for Global Logistics",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

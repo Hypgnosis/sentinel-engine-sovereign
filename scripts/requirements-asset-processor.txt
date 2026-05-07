@@ -1,0 +1,8 @@
+# Sentinel Governed Asset Processor — Python Dependencies
+# Pinned versions to prevent supply-chain drift in governed environments.
+
+rembg==2.0.57        # Background removal (U2NET via ONNX)
+Pillow>=10.0,<11.0   # Image I/O
+requests>=2.31,<3.0  # Veritas Proxy HTTP client
+psutil>=5.9,<6.0     # Memory guard (OOM prevention)
+onnxruntime>=1.16,<2.0  # CPU inference (use onnxruntime-gpu for GPU)

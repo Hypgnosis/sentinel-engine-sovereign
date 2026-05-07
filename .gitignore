@@ -1,0 +1,97 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment variables
+*.local
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+
+# OS files
+Desktop.ini
+.Spotlight-V100
+.Trashes
+
+# Gemini / AI agent context
+.gemini/
+.agents/
+_agents/
+.agent/
+_agent/
+
+# Deployment artifacts
+deploy_*.txt
+deploy*.log
+*_err.txt
+*_out.txt
+
+# Test artifacts
+test_result.json
+test_output.txt
+eval_logs.txt
+eval_output.txt
+
+# Debug & scaffolding
+*.py
+db-secret.txt
+logs.json
+logs.txt
+logs_new.txt
+logs_out.txt
+projects.txt
+footer_temp.txt
+out.txt
+
+# Python virtual environments
+.venv/
+
+# Debug payloads (V5.1: Dead code purge)
+payload.json
+
+# Terraform state (contains secrets)
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+*.tfstate
+*.tfstate.backup
+
+# Cloud SQL Proxy binary
+cloud-sql-proxy.exe
+cloud-sql-proxy
+
+# Compiled Go binaries (sovereign-guard, bridge proxy, sidecar)
+sovereign-guard/sentinel-guard
+tests/bridge_test_proxy
+sidecar/sentinel-sidecar
+
+# K6 load test binaries (52-63MB each — use `npm i k6` or download at test time)
+tests/k6.exe
+tests/k6-linux
+
+# Large test result dumps (>50MB — regenerated on each crucible run)
+tests/crucible_full_results.json

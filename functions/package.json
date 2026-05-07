@@ -1,0 +1,37 @@
+{
+  "name": "sentinel-engine-core",
+  "version": "5.5.0-Sovereign",
+  "description": "Sentinel Engine — Conditional Execution Layer (Cloud Function, V5.5 Sovereign)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "npx @google-cloud/functions-framework --target=sentinelInference --port=8080",
+    "seed": "node seed-firestore.js",
+    "deploy": "gcloud functions deploy sentinelInference --gen2 --runtime=nodejs22 --region=us-central1 --trigger-http --cpu=1 --memory=2048Mi --timeout=300s --min-instances=1 --entry-point=sentinelInference --source=. --project=ha-sentinel-core-v21 --service-account=sentinel-inference-sa@ha-sentinel-core-v21.iam.gserviceaccount.com --ingress-settings=all --set-secrets=\"DATABASE_URL=DATABASE_URL:latest,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME:latest,SENTINEL_ENCRYPTION_KEY=SENTINEL_ENCRYPTION_KEY:latest,SENTINEL_SIGNING_KEY=SENTINEL_SIGNING_KEY:latest,SYSTEM_PEPPER=SYSTEM_PEPPER:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,SENTINEL_PRIVATE_KEY=SENTINEL_PRIVATE_KEY:latest,SENTINEL_PUBLIC_KEY=SENTINEL_PUBLIC_KEY:latest\"",
+    "deploy-tts": "gcloud functions deploy sentinelTTS --gen2 --runtime=nodejs22 --region=us-central1 --trigger-http --cpu=1 --memory=2048Mi --timeout=300s --entry-point=sentinelTTS --source=. --project=ha-sentinel-core-v21 --service-account=sentinel-inference-sa@ha-sentinel-core-v21.iam.gserviceaccount.com --ingress-settings=all --set-secrets=\"DATABASE_URL=DATABASE_URL:latest,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME:latest,SENTINEL_ENCRYPTION_KEY=SENTINEL_ENCRYPTION_KEY:latest,SENTINEL_SIGNING_KEY=SENTINEL_SIGNING_KEY:latest,SYSTEM_PEPPER=SYSTEM_PEPPER:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,SENTINEL_PRIVATE_KEY=SENTINEL_PRIVATE_KEY:latest,SENTINEL_PUBLIC_KEY=SENTINEL_PUBLIC_KEY:latest\"",
+    "deploy-verification": "gcloud functions deploy sentinelVerification --gen2 --runtime=nodejs22 --region=us-central1 --trigger-http --cpu=1 --memory=512Mi --timeout=60s --entry-point=sentinelVerification --source=. --project=ha-sentinel-core-v21 --service-account=sentinel-inference-sa@ha-sentinel-core-v21.iam.gserviceaccount.com --ingress-settings=all --set-secrets=\"DATABASE_URL=DATABASE_URL:latest,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME:latest,SENTINEL_ENCRYPTION_KEY=SENTINEL_ENCRYPTION_KEY:latest,SENTINEL_SIGNING_KEY=SENTINEL_SIGNING_KEY:latest,SYSTEM_PEPPER=SYSTEM_PEPPER:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,SENTINEL_PRIVATE_KEY=SENTINEL_PRIVATE_KEY:latest,SENTINEL_PUBLIC_KEY=SENTINEL_PUBLIC_KEY:latest\"",
+    "provision-tenant": "node ../scripts/provision_tenant.js",
+    "deploy-escalation": "gcloud functions deploy sentinelEscalation --gen2 --runtime=nodejs22 --region=us-central1 --trigger-http --cpu=1 --memory=2048Mi --timeout=300s --entry-point=sentinelEscalation --source=. --project=ha-sentinel-core-v21 --service-account=sentinel-inference-sa@ha-sentinel-core-v21.iam.gserviceaccount.com --ingress-settings=all --set-secrets=\"DATABASE_URL=DATABASE_URL:latest,INSTANCE_CONNECTION_NAME=INSTANCE_CONNECTION_NAME:latest,SENTINEL_ENCRYPTION_KEY=SENTINEL_ENCRYPTION_KEY:latest,SENTINEL_SIGNING_KEY=SENTINEL_SIGNING_KEY:latest,SYSTEM_PEPPER=SYSTEM_PEPPER:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,SENTINEL_PRIVATE_KEY=SENTINEL_PRIVATE_KEY:latest,SENTINEL_PUBLIC_KEY=SENTINEL_PUBLIC_KEY:latest\"",
+    "test-hitl": "node test-v54-hitl.js",
+    "test-v55": "node test-v55-ags.js",
+    "test-production": "node test-production.js",
+    "setup-audit-table": "node -e \"require('./audit-log-exporter').ensureAuditTable().then(() => { console.log('Done.'); process.exit(0); }).catch(e => { console.error(e); process.exit(1); })\""
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.9.0",
+    "@google-cloud/firestore": "^7.11.0",
+    "@google-cloud/functions-framework": "^3.4.5",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "@google-cloud/text-to-speech": "^6.4.0",
+    "@google/genai": "^1.48.0",
+    "cors": "^2.8.6",
+    "firebase-admin": "^13.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "jwks-rsa": "^3.1.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.3.6",
+    "@simplewebauthn/server": "^13.1.0"
+  }
+}

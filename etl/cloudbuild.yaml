@@ -1,0 +1,42 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/sentinel-registry/sentinel-etl:${SHORT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/sentinel-registry/sentinel-etl:latest'
+      - '.'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/sentinel-registry/sentinel-etl'
+
+  # Deploy as Cloud Run Job
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'update'
+      - 'sentinel-etl'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/sentinel-registry/sentinel-etl:${SHORT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--memory'
+      - '1Gi'
+      - '--timeout'
+      - '300s'
+      - '--max-retries'
+      - '2'
+
+substitutions:
+  _REGION: us-central1
+
+options:
+  logging: CLOUD_LOGGING_ONLY

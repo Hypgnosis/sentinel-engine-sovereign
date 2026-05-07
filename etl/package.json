@@ -1,0 +1,26 @@
+{
+  "name": "sentinel-etl-pipeline",
+  "version": "4.1.0",
+  "description": "Sentinel Engine — Industrial ETL Pipeline (Cloud Run Job, Production)",
+  "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test.js",
+    "build": "gcloud builds submit --config=cloudbuild.yaml --project=ha-sentinel-core-v21",
+    "deploy": "gcloud run jobs deploy sentinel-etl --source=. --region=us-central1 --project=ha-sentinel-core-v21 --service-account=sentinel-etl-sa@ha-sentinel-core-v21.iam.gserviceaccount.com"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.9.0",
+    "@google-cloud/secret-manager": "^5.6.0",
+    "@google/genai": "^1.48.0",
+    "axios": "^1.7.0",
+    "dotenv": "^17.4.1",
+    "pg": "^8.20.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.3.6"
+  }
+}

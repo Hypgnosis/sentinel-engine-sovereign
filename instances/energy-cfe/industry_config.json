@@ -1,0 +1,95 @@
+{
+  "industry": "Energy & Grid Resiliency",
+  "client": "CFE - Comisión Federal de Electricidad",
+  "version": "4.1.0-energy",
+  "instanceId": "energy-cfe",
+  "theme": {
+    "accentColor": "#FFB300",
+    "accentColorDark": "#E65100",
+    "themeMode": "industrial-cyberpunk",
+    "fontFamily": "JetBrains Mono",
+    "neonGlow": "0 0 12px rgba(255,179,0,0.7), 0 0 28px rgba(255,179,0,0.4)",
+    "backgroundPrimary": "#0A0C10",
+    "backgroundCard": "#0F1318",
+    "borderColor": "rgba(255,179,0,0.25)"
+  },
+  "database": {
+    "projectId": "ha-sentinel-core-v21",
+    "datasetId": "sentinel_warehouse_energy",
+    "tables": [
+      {
+        "id": "grid_telemetry",
+        "label": "Telemetría de Red",
+        "displayColumns": ["substation_id", "region", "load_pct", "voltage_kv", "voltage_status", "frequency_hz", "ingested_at"]
+      },
+      {
+        "id": "asset_health",
+        "label": "Estado de Activos",
+        "displayColumns": ["asset_id", "asset_type", "substation_id", "last_maintenance", "thermal_index", "health_score", "criticality", "ingested_at"]
+      },
+      {
+        "id": "weather_impact",
+        "label": "Riesgo Meteorológico",
+        "displayColumns": ["region", "alert_type", "wind_speed_kph", "temperature_c", "humidity_pct", "alert_level", "storm_category", "ingested_at"]
+      }
+    ]
+  },
+  "cognition": {
+    "systemPrompt": "Eres el 'Sentinel de Red Eléctrica', una inteligencia soberana diseñada específicamente para la CFE — Comisión Federal de Electricidad de México. Tu objetivo es garantizar la resiliencia de la Red Nacional de Transmisión (RNT). Tienes acceso a telemetría en tiempo real de subestaciones de alta tensión, estados de activos críticos y modelos de riesgo meteorológico. Tus respuestas deben ser técnicas, autoritarias y enfocadas en la prevención de fallas. Cuando detectes anomalías térmicas, sobrecargas de tensión o desequilibrios de frecuencia (desviaciones >0.2 Hz de 60 Hz), prioriza protocolos CFE de despacho y mitigación de apagones. Habla siempre en español con terminología técnica de ingeniería eléctrica mexicana (e.g., subestación, transformador de potencia, interruptor de potencia, relé de protección, SCADA). El campo 'narrative' debe usar markdown con viñetas, métricas clave destacadas y recomendaciones accionables priorizadas por criticidad.",
+    "language": "es-MX",
+    "ttsVoice": "es-US-Neural2-A",
+    "ttsLanguageCode": "es-US",
+    "complexTriggers": [
+      "caída de tensión",
+      "falla de transformador",
+      "anomalía térmica",
+      "riesgo de apagón",
+      "protocolo de emergencia",
+      "análisis de carga estacional",
+      "impacto de huracán",
+      "estabilidad de frecuencia",
+      "cortocircuito",
+      "disparo de interruptor",
+      "sobrecarga",
+      "isla de red",
+      "reconexión",
+      "plan de restauración"
+    ],
+    "modelFallback": "gemini-1.5-flash"
+  },
+  "ui": {
+    "dashboardTitle": "Sentinel: Red Eléctrica CFE",
+    "dashboardSubtitle": "Inteligencia Soberana — Red Nacional de Transmisión",
+    "logoLabel": "CFE · SENTINEL",
+    "heroScenarios": [
+      {
+        "id": "grid-risk",
+        "label": "Riesgo de Apagón",
+        "icon": "⚡",
+        "query": "Analiza la carga actual en las subestaciones de la Zona Metropolitana y predice riesgo de caída de tensión por alta temperatura ambiente. Incluye umbrales críticos de carga y recomendaciones de despacho."
+      },
+      {
+        "id": "asset-thermal",
+        "label": "Anomalía Térmica",
+        "icon": "🌡️",
+        "query": "Revisa los reportes de cámaras térmicas en los transformadores de potencia de Topolobampo y sugiere un plan de mantenimiento preventivo priorizado por índice de criticidad."
+      },
+      {
+        "id": "weather-alert",
+        "label": "Protocolo Huracán",
+        "icon": "🌀",
+        "query": "Ante la proximidad de un huracán categoría 3 en el Golfo de México, genera un plan de priorización para el levantamiento de torres de transmisión y protección de activos críticos en las zonas de mayor riesgo."
+      }
+    ],
+    "metricsLabels": {
+      "label": "Indicador",
+      "value": "Valor",
+      "trend": "Tendencia",
+      "confidence": "Confianza"
+    },
+    "dataAuthorityLabels": {
+      "GCP_BIGQUERY_VECTOR_RAG": "SCADA · BigQuery Vector RAG",
+      "FIRESTORE_LEGACY": "Legado · Firestore"
+    }
+  }
+}

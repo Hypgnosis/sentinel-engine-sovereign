@@ -1,0 +1,10 @@
+# This file specifies files that are NOT uploaded to Google Cloud
+# when deploying the Cloud Function.
+
+node_modules/
+.git/
+.gitignore
+seed-firestore.js
+*.test.js
+*.spec.js
+README.md

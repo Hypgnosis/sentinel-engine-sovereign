@@ -1,0 +1,77 @@
+swagger: '2.0'
+info:
+  title: Sentinel Engine API (Rose Rocket Dedicated Environment)
+  description: Autonomous Logistics Intelligence Engine. Headless API for TMS integration.
+  version: 5.5.0
+host: us-central1-ha-sentinel-core-v21.cloudfunctions.net
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /sentinelInference:
+    post:
+      summary: Execute Sovereign Intelligence Query
+      operationId: executeQuery
+      x-google-backend:
+        address: https://us-central1-ha-sentinel-core-v21.cloudfunctions.net/sentinelInference
+        deadline: 30.0
+      security:
+        - Bearer: []
+      parameters:
+        - in: body
+          name: request
+          description: Natural language logistics query
+          required: true
+          schema:
+            type: object
+            required:
+              - query
+            properties:
+              query:
+                type: string
+                example: "What is the current port congestion at Long Beach?"
+      responses:
+        '200':
+          description: Successful structured JSON response
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "SUCCESS"
+              data:
+                type: object
+                properties:
+                  narrative:
+                    type: string
+                  metrics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        value:
+                          type: string
+                        trend:
+                          type: string
+                        confidence:
+                          type: number
+                  confidence:
+                    type: number
+                  sources:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Unauthorized (Missing or invalid Firebase JWT)
+        '403':
+          description: Forbidden (Tenant ID not provisioned)
+        '429':
+          description: Too Many Requests (Rate limit exceeded)
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header

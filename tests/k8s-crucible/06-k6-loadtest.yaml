@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-script
+  namespace: sentinel-crucible
+data:
+  load_test.js: |
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+
+    export const options = {
+      tlsAuth: [
+        {
+          domains: ['sentinel-sidecar.sentinel-crucible.svc.cluster.local'],
+          cert: __ENV.MY_CERT,
+          key: __ENV.MY_KEY,
+        },
+      ],
+      insecureSkipTLSVerify: true, // using self-signed CA for tests
+      stages: [
+        { duration: '10s', target: 5000 },
+        { duration: '40s', target: 5000 },
+        { duration: '10s', target: 0 },
+      ],
+      thresholds: {
+        http_req_failed: ['rate<0.01'],    // Error rate must be < 1%
+        http_req_duration: ['p(95)<500'],  // 95% of requests must complete below 500ms
+      },
+    };
+
+    export default function () {
+      const tenantId = `crucible-tenant-${Math.floor(Math.random() * 50)}`;
+      
+      const payload = JSON.stringify({
+        tenant_id: tenantId,
+        skill: 'ping',
+        resource: '/test/ping',
+      });
+
+      const params = {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      const res = http.post('https://sentinel-sidecar.sentinel-crucible.svc.cluster.local:9443/v1/arbitrate', payload, params);
+
+      check(res, {
+        'is status 200': (r) => r.status === 200,
+        'is admissible': (r) => {
+          try {
+            return JSON.parse(r.body).decision === 'ADMISSIBLE';
+          } catch (e) {
+            return false;
+          }
+        },
+        'meets sub-0.177ms SLA': (r) => {
+          try {
+            return JSON.parse(r.body).latency_us < 177;
+          } catch (e) {
+            return false;
+          }
+        },
+      });
+
+      sleep(0.1); // Small think time to avoid completely overwhelming the Go scheduler
+    }
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: crucible-k6
+  namespace: sentinel-crucible
+spec:
+  template:
+    spec:
+      containers:
+      - name: k6
+        image: grafana/k6:latest
+        command: ["k6", "run", "/scripts/load_test.js"]
+        volumeMounts:
+        - name: k6-script
+          mountPath: /scripts
+        - name: mtls-certs
+          mountPath: /var/sentinel/certs
+          readOnly: true
+        env:
+        - name: MY_CERT
+          valueFrom:
+            secretKeyRef:
+              name: mtls-certs
+              key: client.crt
+        - name: MY_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mtls-certs
+              key: client.key
+        resources:
+          requests:
+            cpu: "2"
+            memory: "2Gi"
+          limits:
+            cpu: "4"
+            memory: "4Gi"
+      volumes:
+      - name: mtls-certs
+        secret:
+          secretName: mtls-certs
+      - name: k6-script
+        configMap:
+          name: k6-script
+      restartPolicy: Never
+  backoffLimit: 0

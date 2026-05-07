@@ -1,0 +1,271 @@
+{
+  "info": {
+    "name": "Sentinel Engine — Sovereign Intelligence API",
+    "description": "Enterprise logistics intelligence API powered by GCP-native infrastructure.\n\nAuthentication: Firebase ID Token (Bearer)\nEndpoint: https://gateway.sentinel-engine.tech/v5/inference\n\n## Quick Start\n1. Set the `sentinel_bearer_token` variable in the Sandbox environment\n2. Run the 'Health Check Ping' request to verify connectivity\n3. Run any query request to test inference\n\n## Authentication\nTokens are obtained via Firebase Auth SDK. For sandbox testing, use the token provided by your Sentinel Engine administrator.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sentinel-engine-v5.5-collection"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{sentinel_bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://gateway.sentinel-engine.tech/v5"
+    },
+    {
+      "key": "sentinel_bearer_token",
+      "value": "<YOUR_FIREBASE_ID_TOKEN>",
+      "description": "Firebase ID Token for authentication. Obtain via: firebase.auth().currentUser.getIdToken()"
+    }
+  ],
+  "item": [
+    {
+      "name": "Intelligence Queries",
+      "description": "Core inference endpoints for logistics intelligence.",
+      "item": [
+        {
+          "name": "Query — Freight Rates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"What are current Shanghai-Rotterdam freight rates?\"\n}"
+            },
+            "description": "Queries current freight rate intelligence for the Shanghai-Rotterdam corridor."
+          },
+          "response": []
+        },
+        {
+          "name": "Query — Port Congestion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Show port congestion at Long Beach and current vessel queue\"\n}"
+            },
+            "description": "Retrieves real-time port congestion data and vessel queue metrics."
+          },
+          "response": []
+        },
+        {
+          "name": "Query — Baltic Dry Index",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Analyze Baltic Dry Index trends and Capesize demand\"\n}"
+            },
+            "description": "Analyzes BDI trends with vessel class breakdown."
+          },
+          "response": []
+        },
+        {
+          "name": "Query — Suez Canal Risks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Suez Canal transit delays today and risk assessment\"\n}"
+            },
+            "description": "Risk analysis for Suez Canal transit conditions."
+          },
+          "response": []
+        },
+        {
+          "name": "Query — Custom (Freeform)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"YOUR_CUSTOM_QUERY_HERE\"\n}"
+            },
+            "description": "Submit any freeform logistics intelligence query."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Diagnostics",
+      "description": "Health check and diagnostic endpoints.",
+      "item": [
+        {
+          "name": "Health Check Ping",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Health probe. Sends empty body to test endpoint reachability.\n\n**Expected**: 400 (SENTINEL_EMPTY_QUERY) if authenticated, 401 if not.\nBoth confirm the endpoint is alive."
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Probe (No Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"test\"\n}"
+            },
+            "description": "Tests the auth gate by sending a request without a Bearer token.\n\n**Expected**: 401 (SENTINEL_AUTH_MISSING)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Scenarios",
+      "description": "Tests for expected error responses.",
+      "item": [
+        {
+          "name": "Error — Empty Query (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"\"\n}"
+            },
+            "description": "**Expected**: 400 SENTINEL_EMPTY_QUERY"
+          },
+          "response": []
+        },
+        {
+          "name": "Error — Rate Limit Burst (429)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Run this request 6+ times rapidly to trigger rate limiting",
+                  "console.log('Burst request to test rate limiter (5 req / 10s)');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inference",
+              "host": ["{{base_url}}"],
+              "path": ["inference"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Rate limit test\"\n}"
+            },
+            "description": "Run 6+ times within 10 seconds.\n\n**Expected**: 429 SENTINEL_RATE_LIMIT_EXCEEDED after 5th request"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

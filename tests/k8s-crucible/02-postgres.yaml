@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-init-sql
+  namespace: sentinel-crucible
+data:
+  01-init.sql: |
+    CREATE TABLE IF NOT EXISTS veritas_audit_log (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id       TEXT NOT NULL,
+        skill_name      TEXT,
+        resource_path   TEXT,
+        arbiter_decision TEXT NOT NULL CHECK (arbiter_decision IN ('ADMISSIBLE', 'DENIED', 'ESCALATED', 'RATE_LIMITED', 'SHARD_UNAVAILABLE')),
+        sidecar_audit_id TEXT NOT NULL UNIQUE,
+        sidecar_latency_us  BIGINT,
+        wal_timestamp       TIMESTAMPTZ,
+        ingested_at         TIMESTAMPTZ DEFAULT NOW(),
+        wal_sequence        BIGINT,
+        synced              BOOLEAN DEFAULT TRUE
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_tenant_time ON veritas_audit_log (tenant_id, ingested_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_decision ON veritas_audit_log (arbiter_decision, ingested_at DESC);
+    ANALYZE veritas_audit_log;
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: crucible-postgres
+  namespace: sentinel-crucible
+spec:
+  serviceName: "crucible-postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crucible-postgres
+  template:
+    metadata:
+      labels:
+        app: crucible-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        env:
+        - name: POSTGRES_USER
+          value: "sentinel"
+        - name: POSTGRES_PASSWORD
+          value: "crucible_test_2026"
+        - name: POSTGRES_DB
+          value: "sentinel_hub"
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: "scram-sha-256"
+        - name: POSTGRES_INITDB_ARGS
+          value: "--auth-host=scram-sha-256"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        args: ["-c", "max_connections=150", "-c", "shared_buffers=256MB", "-c", "work_mem=16MB", "-c", "log_min_duration_statement=100", "-c", "log_statement=none"]
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: pgdata
+          mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: hub-init-sql
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "premium-rwo" # GKE pd-ssd
+      resources:
+        requests:
+          storage: 50Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crucible-postgres
+  namespace: sentinel-crucible
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: crucible-postgres
+  clusterIP: None

@@ -1,0 +1,17 @@
+# ═══════════════════════════════════════════════════════════════
+#  SENTINEL V5.5 — Bridge Test Proxy Container
+# ═══════════════════════════════════════════════════════════════
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /build
+COPY tests/go.mod ./
+COPY tests/bridge_test_proxy.go ./
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w" \
+    -o /bridge_test_proxy ./bridge_test_proxy.go
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /bridge_test_proxy /bridge_test_proxy
+EXPOSE 9090
+USER nonroot:nonroot
+ENTRYPOINT ["/bridge_test_proxy"]

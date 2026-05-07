@@ -1,0 +1,193 @@
+# ═══════════════════════════════════════════════════════
+#  SENTINEL ENGINE — API GATEWAY CONFIGURATION
+#  Google Cloud API Gateway OpenAPI 2.0 Config
+# ═══════════════════════════════════════════════════════
+#
+#  This config deploys an API Gateway in front of the
+#  Cloud Run sentinelInference function. It provides:
+#    - Request routing to Cloud Run backend
+#    - Usage quota enforcement (10,000 req/month base tier)
+#    - CORS passthrough (handled by the Cloud Function)
+#
+#  V5.5: Added /v1/arbitrate (Veritas Proxy) route for
+#        shard-aware agent→kernel arbitration.
+#
+#  Deploy via: infra/api-gateway.sh
+#
+#  © High ArchyTech Solutions — Sentinel Engine v5.5
+# ═══════════════════════════════════════════════════════
+
+swagger: '2.0'
+info:
+  title: Sentinel Engine API Gateway
+  version: '5.5.0'
+  description: >
+    Enterprise API Gateway for Sentinel Engine sovereign intelligence layer.
+    Routes to Cloud Run backend with quota management and shard-aware arbitration.
+
+host: gateway.sentinel-engine.tech
+basePath: /
+schemes:
+  - https
+
+# ─────────────────────────────────────────────────────
+#  BACKEND ROUTING
+# ─────────────────────────────────────────────────────
+
+x-google-backend:
+  address: https://sentinelinference-XXXXXXXXXX-uc.a.run.app
+  protocol: h2
+  deadline: 300.0
+
+# ─────────────────────────────────────────────────────
+#  QUOTA MANAGEMENT
+# ─────────────────────────────────────────────────────
+
+x-google-management:
+  metrics:
+    - name: sentinel-inference-requests
+      displayName: Sentinel Inference Requests
+      valueType: INT64
+      metricKind: DELTA
+    - name: sentinel-arbitrate-requests
+      displayName: Sentinel Arbitrate Requests (Veritas Proxy)
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: sentinel-monthly-limit
+        metric: sentinel-inference-requests
+        unit: 1/min/{project}
+        values:
+          STANDARD: 350
+        # 350 req/min ≈ 10,000 req/month at sustained usage
+      - name: sentinel-arbitrate-limit
+        metric: sentinel-arbitrate-requests
+        unit: 1/min/{project}
+        values:
+          STANDARD: 500
+        # Higher limit for arbitrate — it includes rate limiting internally
+
+# ─────────────────────────────────────────────────────
+#  PATHS
+# ─────────────────────────────────────────────────────
+
+paths:
+  # ── V5.5: Veritas Proxy (Agent → Kernel Gateway) ──
+  /v1/arbitrate:
+    post:
+      operationId: sentinelArbitrate
+      summary: Shard-aware agent-to-kernel arbitration
+      description: >
+        The SOLE entry point for agent-to-kernel communication.
+        Never call the Arbiter Kernel directly. The Veritas Proxy
+        handles tenant→shard routing, skill admissibility checks,
+        tier-aware rate limiting, and append-only audit logging.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - tenant_id
+              - agent_metadata
+              - action_payload
+            properties:
+              tenant_id:
+                type: string
+                description: Project UUID or tenant identifier
+              agent_metadata:
+                type: object
+                description: 'Agent context: { role, source }'
+                properties:
+                  role:
+                    type: string
+                  source:
+                    type: string
+              action_payload:
+                type: string
+                description: Generated code or system call to arbitrate
+              skill_name:
+                type: string
+                description: Optional skill to check admissibility for
+      responses:
+        '200':
+          description: Arbiter decision with shard metadata
+        '400':
+          description: Invalid payload structure
+        '403':
+          description: Skill denied or tenant not provisioned
+        '404':
+          description: No active shard mapping for tenant
+        '429':
+          description: Tier-aware rate limit exceeded
+        '500':
+          description: Internal error
+      x-google-quota:
+        metricCosts:
+          sentinel-arbitrate-requests: 1
+
+    options:
+      operationId: sentinelArbitratePreflight
+      summary: CORS preflight handler for arbitrate
+      responses:
+        '204':
+          description: No content (CORS headers set by backend)
+
+  # ── Legacy: Direct Inference (V4 compatibility) ──
+  /v4/inference:
+    post:
+      operationId: sentinelInference
+      summary: Execute logistics intelligence query
+      description: >
+        Proxies the request to the Sentinel Engine Cloud Run backend.
+        Authentication is handled by the backend (Firebase JWT verification).
+        Rate limiting is applied at both gateway and backend levels.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+              - query
+            properties:
+              query:
+                type: string
+                description: Natural language logistics query
+      responses:
+        '200':
+          description: Structured intelligence response
+        '400':
+          description: Bad request — empty or missing query
+        '401':
+          description: Unauthorized — missing or invalid token
+        '403':
+          description: Forbidden — tenant not provisioned
+        '429':
+          description: Rate limit exceeded
+        '503':
+          description: Infrastructure data unavailable
+      x-google-quota:
+        metricCosts:
+          sentinel-inference-requests: 1
+
+    options:
+      operationId: sentinelInferencePreflight
+      summary: CORS preflight handler
+      description: >
+        Handles browser CORS preflight requests.
+        Proxied to backend which returns appropriate headers.
+      responses:
+        '204':
+          description: No content (CORS headers set by backend)
+

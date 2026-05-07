@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════════
+#  SENTINEL V5.5 — Governed Asset Processor (Container Image)
+#  Pre-provisions U2NET models at BUILD TIME, not RUNTIME.
+#
+#  This eliminates the Dependency Chaos showstopper:
+#    - No runtime model downloads (blocked by Tier 1 egress policies)
+#    - Model weights are baked into the image layer
+#    - ONNX Runtime uses CPU by default (GPU via rembg[gpu] override)
+#
+#  Build:
+#    docker build -t sentinel-asset-processor:5.5 -f Dockerfile.asset-processor .
+#
+#  Run (with governance tethering):
+#    docker run --rm \
+#      -e SENTINEL_VERITAS_PROXY_URL=https://veritas.sentinel.internal \
+#      -e SENTINEL_TENANT_ID=<tenant-uuid> \
+#      -v /mnt/shards:/mnt/shards:rw \
+#      --memory=4g \
+#      --memory-swap=4g \
+#      sentinel-asset-processor:5.5 \
+#      /mnt/shards/<tenant-uuid>/input/photo.png \
+#      /mnt/shards/<tenant-uuid>/output/photo_nobg.png
+#
+#  WARNING: Do NOT run this container without --memory limits.
+#  ONNX Runtime will consume all available RAM if unconstrained.
+# ═══════════════════════════════════════════════════════════════
+
+FROM python:3.11-slim AS base
+
+# ── System deps for Pillow and ONNX ──
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/sentinel
+
+# ── Python deps ──
+COPY scripts/requirements-asset-processor.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ── PRE-PROVISION U2NET MODELS (CRITICAL) ──
+# Download model weights at build time, NOT runtime.
+# This prevents the 170MB download that would be blocked by
+# Tier 1 egress firewall policies.
+ENV U2NET_HOME=/opt/sentinel/models/u2net
+RUN mkdir -p ${U2NET_HOME} && \
+    python -c "\
+import os; \
+os.environ['U2NET_HOME'] = '${U2NET_HOME}'; \
+from rembg.sessions import new_session; \
+new_session('u2net')" && \
+    echo "[BUILD] U2NET model pre-provisioned at ${U2NET_HOME}" && \
+    ls -la ${U2NET_HOME}/
+
+# ── Application code ──
+COPY scripts/remove_bg.py ./remove_bg.py
+
+# ── Security: Run as non-root ──
+RUN groupadd -r sentinel && \
+    useradd -r -g sentinel -d /opt/sentinel sentinel && \
+    chown -R sentinel:sentinel /opt/sentinel
+USER sentinel
+
+# ── Memory limit hint (enforced by orchestrator, not Docker) ──
+ENV SENTINEL_MIN_MEMORY_MB=2048
+
+ENTRYPOINT ["python", "/opt/sentinel/remove_bg.py"]

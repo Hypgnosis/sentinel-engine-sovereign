@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crucible-pgbouncer
+  namespace: sentinel-crucible
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crucible-pgbouncer
+  template:
+    metadata:
+      labels:
+        app: crucible-pgbouncer
+    spec:
+      containers:
+      - name: pgbouncer
+        image: edoburu/pgbouncer:1.22.1-alpine
+        env:
+        - name: DATABASE_URL
+          value: "postgres://sentinel:crucible_test_2026@crucible-postgres:5432/sentinel_hub"
+        - name: AUTH_TYPE
+          value: "scram-sha-256"
+        - name: AUTH_USER
+          value: "sentinel"
+        - name: AUTH_QUERY
+          value: "SELECT usename, passwd FROM pg_shadow WHERE usename=$1"
+        - name: POOL_MODE
+          value: "transaction"
+        - name: MAX_CLIENT_CONN
+          value: "10000"
+        - name: DEFAULT_POOL_SIZE
+          value: "120"
+        - name: MIN_POOL_SIZE
+          value: "10"
+        - name: RESERVE_POOL_SIZE
+          value: "25"
+        - name: RESERVE_POOL_TIMEOUT
+          value: "3"
+        - name: MAX_DB_CONNECTIONS
+          value: "100"
+        - name: SERVER_RESET_QUERY
+          value: "DISCARD ALL"
+        ports:
+        - containerPort: 5432
+        resources:
+          requests:
+            cpu: "1"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crucible-pgbouncer
+  namespace: sentinel-crucible
+spec:
+  ports:
+  - port: 6432
+    targetPort: 5432
+  selector:
+    app: crucible-pgbouncer

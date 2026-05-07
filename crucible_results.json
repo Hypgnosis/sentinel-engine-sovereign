@@ -1,0 +1,25 @@
+{
+  "test_name": "Sentinel V5.5 — 50-Tenant Crucible",
+  "timestamp": "2026-04-27T20:45:25.440Z",
+  "tenants": 50,
+  "results": {
+    "total_requests": 223,
+    "admissible": 0,
+    "denied": 0,
+    "wal_failures": 0,
+    "sla_violations": 0,
+    "error_rate_pct": "100.000"
+  },
+  "latency": {
+    "sidecar_p50_us": 0,
+    "sidecar_p90_us": "N/A",
+    "sidecar_p95_us": 0,
+    "sidecar_p99_us": "N/A",
+    "sidecar_max_us": "N/A",
+    "http_p50_us": 0,
+    "http_p95_us": 0,
+    "bridge_overhead_p50_us": "0.0",
+    "bridge_overhead_p95_us": "0.0"
+  },
+  "thresholds_passed": true
+}

@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════
+#  SENTINEL V5.5 — Crucible Hub Stack (Postgres + PgBouncer)
+#
+#  Simulates the production Governance Hub backend for full
+#  load testing with live database writes and connection pooling.
+#
+#  Usage:
+#    cd tests/crucible-hub
+#    docker compose up -d
+#    docker compose logs -f pgbouncer
+#
+#  Invariants verified:
+#    - PgBouncer max_client_conn: 10,000
+#    - Postgres max_connections: 150
+#    - Transaction pooling mode (connections recycled per txn)
+#    - veritas_audit_log table with append-only constraint
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crucible-postgres
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: crucible_test_2026
+      POSTGRES_DB: sentinel_hub
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5433:5432"      # Expose on non-standard port to avoid conflicts
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - pg_data:/var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c" 
+      - "max_connections=150"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "log_min_duration_statement=100"  # Log queries > 100ms
+      - "-c"
+      - "log_statement=none"              # Don't log every INSERT
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel_hub"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1-p0
+    container_name: crucible-pgbouncer
+    environment:
+      DATABASE_URL: postgres://sentinel:crucible_test_2026@postgres:5432/sentinel_hub
+      AUTH_TYPE: scram-sha-256
+      AUTH_USER: sentinel
+      AUTH_QUERY: "SELECT usename, passwd FROM pg_shadow WHERE usename=$1"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 10000
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 25
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_DB_CONNECTIONS: 100
+      SERVER_RESET_QUERY: DISCARD ALL
+      LOG_CONNECTIONS: 0
+      LOG_DISCONNECTIONS: 0
+      LOG_POOLER_ERRORS: 1
+      STATS_PERIOD: 10
+    ports:
+      - "6432:5432"      # PgBouncer listens on standard 5432, exposed as 6432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pg_data:

@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-graph
+  namespace: sentinel-crucible
+data:
+  graph.json: |
+    {
+      "ping": true
+    }
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sentinel-sidecar
+  namespace: sentinel-crucible
+spec:
+  serviceName: "sentinel-sidecar"
+  replicas: 1  # 1 replica can easily handle 5,000 VUs via bridge proxy
+  selector:
+    matchLabels:
+      app: sentinel-sidecar
+  template:
+    metadata:
+      labels:
+        app: sentinel-sidecar
+    spec:
+      containers:
+      # The Sovereign Guard (mTLS TCP Engine + WAL persistence)
+      - name: sidecar
+        image: gcr.io/ha-sentinel-core-v21/sentinel-guard:latest
+        imagePullPolicy: Always
+        env:
+        - name: SENTINEL_LISTEN_ADDR
+          value: ":9443"
+        - name: SENTINEL_SOVEREIGN_SCOPE
+          value: "TMU_VOSPITAL"
+        - name: SENTINEL_AUTHORIZED_IDENTITY
+          value: "vospital.tmu.svc"
+        - name: SENTINEL_WAL_PATH
+          value: "/var/sentinel/wal/wal.jsonl"
+        - name: SENTINEL_SKILLS_PATH
+          value: "/tmp/graph/graph.json"
+        - name: DATABASE_URL
+          value: "postgres://postgres:postgres@crucible-pgbouncer:6432/sentinel?sslmode=disable"
+        ports:
+        - containerPort: 9443
+        volumeMounts:
+        - name: mtls-certs
+          mountPath: /var/sentinel/certs
+          readOnly: true
+        - name: wal-storage
+          mountPath: /var/sentinel/wal
+        - name: graph-config
+          mountPath: /tmp/graph
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+
+      volumes:
+      - name: mtls-certs
+        secret:
+          secretName: mtls-certs
+      - name: graph-config
+        configMap:
+          name: sidecar-graph
+  volumeClaimTemplates:
+  - metadata:
+      name: wal-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "premium-rwo"  # GKE pd-ssd NVMe for Tier-1 IOPS durability
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinel-sidecar
+  namespace: sentinel-crucible
+spec:
+  ports:
+  - port: 9443
+    targetPort: 9443
+  selector:
+    app: sentinel-sidecar
