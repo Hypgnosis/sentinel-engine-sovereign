@@ -35,6 +35,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
@@ -53,6 +54,9 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/sentinel-engine/sidecar/audit"
+	"github.com/sentinel-engine/sidecar/evidence"
 )
 
 // ─────────────────────────────────────────────────────
@@ -75,6 +79,8 @@ var (
 	TenantID      = envOr("SENTINEL_TENANT_ID", "")
 	HubSyncSec    = envOr("SENTINEL_HUB_SYNC_INTERVAL", "15")
 	WALReplaySec  = envOr("SENTINEL_WAL_REPLAY_INTERVAL", "30")
+	ECDSAEnabled  = envOr("SENTINEL_ECDSA_ENABLED", "false") == "true"
+	AuditPort     = envOr("SENTINEL_AUDIT_PORT", "9091")
 	SLATarget     = 177 * time.Microsecond
 )
 
@@ -440,7 +446,7 @@ type ArbitrationResponse struct {
 //  CONNECTION HANDLER — The Sub-0.177ms Hot Path
 // ─────────────────────────────────────────────────────
 
-func handleConnection(conn net.Conn, graph *SkillGraph, wal *WALManager, tel *Telemetry) {
+func handleConnection(conn net.Conn, graph *SkillGraph, wal *WALManager, locker *evidence.Locker, tel *Telemetry) {
 	defer conn.Close()
 	start := time.Now()
 
@@ -476,6 +482,26 @@ func handleConnection(conn net.Conn, graph *SkillGraph, wal *WALManager, tel *Te
 		Resource:    req.Resource,
 		Decision:    decision,
 		AuditID:     auditID,
+	}
+
+	if locker != nil {
+		var action, agent, owner [32]byte
+		copy(action[:], []byte(auditID))
+		copy(agent[:], []byte("agent-007"))
+		copy(owner[:], []byte(req.TenantID))
+
+		if !locker.SealAndDrop(action, agent, owner, req.Skill) {
+			log.Printf("[WAL_CRITICAL] Ed25519 SealAndDrop failed — denying request")
+			resp := ArbitrationResponse{
+				Decision:  "DENIED",
+				Reason:    "EVIDENCE_LOCKER_SATURATED",
+				AuditID:   auditID,
+				LatencyUs: elapsed.Microseconds(),
+			}
+			json.NewEncoder(conn).Encode(resp)
+			tel.Record(time.Since(start))
+			return
+		}
 	}
 
 	if err := wal.Append(walEntry); err != nil {
@@ -613,6 +639,22 @@ func main() {
 		log.Printf("[BOOT] WAL has %d unsynced entries — background replay will drain them", report.PendingCount)
 	}
 
+	// 4c. EVIDENCE LOCKER (Ed25519)
+	var locker *evidence.Locker
+	if ECDSAEnabled { // Re-using the flag since it's testing the locker
+		pubKey, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			log.Fatalf("[FATAL] Ed25519 key generation failed: %v", err)
+		}
+		lockerPath := WALPath + ".sep"
+		locker = evidence.InitLocker(lockerPath, key)
+		log.Printf("[BOOT] Ed25519 Evidence Locker initialized at %s", lockerPath)
+
+		// 4d. AUDIT VERIFICATION API (physically decoupled from hot-path)
+		verifier := audit.NewVerifier(pubKey)
+		go audit.StartAuditServer(AuditPort, verifier, lockerPath)
+	}
+
 	// 5. TELEMETRY
 	tel := &Telemetry{}
 
@@ -672,6 +714,6 @@ func main() {
 			log.Printf("[ACCEPT_ERROR] %v", err)
 			continue
 		}
-		go handleConnection(conn, graph, wal, tel)
+		go handleConnection(conn, graph, wal, locker, tel)
 	}
 }
